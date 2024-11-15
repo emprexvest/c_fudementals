@@ -1,22 +1,12 @@
-TARGET = bin/dbview
-SRC = $(wildcard src/*.c)
-OBJ = $(patsubst src/%.c, obj/%.o, $(SRC))
+CC = gcc
+CFLAGS = -Wall -Werror -Iinclude
+all: bin/main
 
-run: clean default
-	./$(TARGET) -f ./mynewdb.db -n 
-	./$(TARGET) -f ./mynewdb.db -a "Timmy H.,123 Sheshire Ln.,120"
+bin/main: src/main.o src/file.c
+	$(CC) $(CFLAGS) -o $@ $^
 
-default: $(TARGET)
+src/%.o: src/%.c include/*.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f obj/*.o
-	rm -f bin/*
-	rm -f *.db
-
-$(TARGET): $(OBJ)
-	gcc -o $@ $?
-
-obj/%.o : src/%.c
-	gcc -c $< -o $@ -Iinclude
-
-
+	rm -f bin/* src/*.o
