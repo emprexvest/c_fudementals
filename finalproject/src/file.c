@@ -10,7 +10,8 @@
 
 
 int create_db_file(char *filename) {
-    int fd = open(filename, O_RDONLY);
+    int fd = open(filename, O_RDWR);
+
     if(fd != -1) {
         close(fd);
         printf("File already exists\n");
@@ -22,11 +23,13 @@ int create_db_file(char *filename) {
         perror("open");
         return STATUS_ERROR;
     }
-    return STATUS_SUCCESS;
+
+    return fd;
 }
 
 int open_db_file(char *filename) {
-    int fd = open(filename, O_RDWR);
+    int fd = open(filename, O_RDWR, 0644);
+    printf("open_db_file file descriptor check:%d, %s", fd, filename);
     if(fd == -1) {
         perror("open");
         return STATUS_ERROR;
