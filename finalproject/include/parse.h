@@ -5,9 +5,9 @@
 
 struct dbheader_t {
 	unsigned int magic;
+	unsigned int filesize;
 	unsigned short version;
 	unsigned short count;
-	unsigned int filesize;
 };
 
 struct employee_t {
@@ -16,11 +16,20 @@ struct employee_t {
 	unsigned int hours;
 };
 
+// Currently in use
 int create_db_header(int fd, struct dbheader_t **headerOut);
+
+// Currently in use
 int validate_db_header(int fd, struct dbheader_t **headerOut);
+
 int read_employees(int fd, struct dbheader_t *, struct employee_t **employeesOut);
-int output_file(int fd, struct dbheader_t *, struct employee_t *employees);
+
+// Currently in use
+// Consider changing it back to a void return type
+void output_file(int fd, struct dbheader_t *);
+
 void list_employees(struct dbheader_t *dbhdr, struct employee_t *employees);
+
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring);
 
 #endif
