@@ -7,35 +7,78 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "file.h"
-#include "common.h"
 #include "parse.h"
+#include "common.h"
+#include "file.h"
+
 
 void list_employees(struct dbheader_t *dbhdr, struct employee_t *employees) {
-
+    int i = 0;
+    for (; i < dbhdr->count; i++) {
+        printf("Employee:%d\n", i);
+        printf("\tName:%s\n", employees[i].name);
+        printf("\tAddress:%s\n", employees[i].address);
+        printf("\tHours:%d\n", employees[i].hours);
+    }
 }
 
 int add_employee(struct dbheader_t *dbhdr, struct employee_t *employees, char *addstring) {
+    printf("%s\n", addstring);
 
+    char *name = strtok(addstring, ",");
+
+    char *addr = strtok(NULL, ",");
+
+    char *hours = strtok(NULL, ",");
+
+    printf("%s %s %s\n", name, addr, hours);
+
+    strncpy(employees[dbhdr->count-1].name, name, sizeof(employees[dbhdr->count-1].name));
+
+    strncpy(employees[dbhdr->count-1].address, addr, sizeof(employees[dbhdr->count-1].address));
+
+    employees[dbhdr->count-1].hours = atoi(hours);
+
+    return STATUS_SUCCESS;
 }
 
 int read_employees(int fd, struct dbheader_t *dbhdr, struct employee_t **employeesOut) {
-
-}
-
-// Might refactor this back into the project
-// int output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
-
-// }	
-
-void output_file(int fd, struct dbheader_t *dbhdr) {
     if(fd < 0) {
         printf("Got a bad FD from the user\n");
         return STATUS_ERROR;
     }
 
+
+    int count = dbhdr->count;
+
+    struct employee_t *employees = calloc(count, sizeof(struct employee_t));
+    if (employees == -1) {
+        printf("Malloc failed\n");
+        return STATUS_ERROR;
+    }
+
+    read(fd, employees, count*sizeof(struct employee_t));
+
+    int i = 0;
+    for (; i < count; i++) {
+        employees[i].hours = ntohl(employees[i].hours);
+    }
+
+    *employeesOut = employees;
+    return STATUS_SUCCESS;
+}
+	
+
+void output_file(int fd, struct dbheader_t *dbhdr, struct employee_t *employees) {
+    if(fd < 0) {
+        printf("Got a bad FD from the user\n");
+        return STATUS_ERROR;
+    }
+
+    int realcount = dbhdr->count;
+
     dbhdr->magic = htonl(dbhdr->magic);
-    dbhdr->filesize = htonl(dbhdr->filesize);
+    dbhdr->filesize = htonl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * realcount));
     dbhdr->count = htons(dbhdr->count);
     dbhdr->version = htons(dbhdr->version);
 
@@ -45,27 +88,12 @@ void output_file(int fd, struct dbheader_t *dbhdr) {
 
     write(fd, dbhdr, sizeof(struct dbheader_t));
 
-    // Remove if non-conditional implementation is working
-    // if(lseek(fd, 0, SEEK_SET) == -1) {
-    //     perror("lseek");
-    //     return STATUS_ERROR;
-    // };
+    int i = 0;
+    for (; i < realcount; i++) {
+        employees[i].hours = htonl(employees[i].hours);
+        write(fd, &employees[i], sizeof(struct employee_t));
+    }
 
-    // if(write(fd, dbhdr, sizeof(struct dbheader_t)) != sizeof(struct dbheader_t)) {
-    //     perror("write");
-    //     return STATUS_ERROR;
-    // }
-
-    // if(write(fd, dbhdr, sizeof(struct dbheader_t) != sizeof(struct dbheader_t))) {
-    //     perror("write");
-    //     return STATUS_ERROR;
-    // }
-
-    // printf("Output from Out_file function:\n");
-    // printf("Magic number output:0X%08x\n", dbhdr->magic);
-    // printf("Version count 0X%08x\n", dbhdr->version);
-
-    // return STATUS_SUCCESS;
     return;
 }	
 
@@ -157,4 +185,54 @@ int create_db_header(int fd, struct dbheader_t **headerOut) {
     return STATUS_SUCCESS;
 }
 
+void find_employee(int fd, struct dbheader_t *dbhdr, struct employee_t *employees, const char *name) {
+    if (fd < 0 || dbhdr->count == 0) {
+        printf("Invalid file or no employees found.\n");
+        return;
+    }    
+
+    
+    for (int i = 0; i < dbhdr->count; i++) {
+        if (strcmp(employees[i].name, name) == 0) {
+            printf("Employee Found:\n");
+            printf("Name: %s\n", employees[i].name);
+            printf("Address: %s\n", employees[i].address);
+            printf("Hours: %d\n", employees[i].hours);
+
+            // Get new hours from user input
+            int new_hours;
+            printf("Enter new hours for the employee: ");
+            if (scanf("%d", &new_hours) != 1) {
+                printf("Invalid input.\n");
+                return;
+            }
+
+            // Converts new_hours to network byte order
+            new_hours = htonl(new_hours);
+
+            // Update the employee's hours in memory
+            employees[i].hours = new_hours;
+
+            // Calculate the offset of the employee record in the file
+            off_t offset = sizeof(struct dbheader_t) + i * sizeof(struct employee_t);
+
+            // Seek to the appropriate position in the file
+            if (lseek(fd, offset, SEEK_SET) == -1) {
+                perror("lseek");
+                return;
+            }
+
+            // Write the updated employee record to the file
+            if (write(fd, &employees[i], sizeof(struct employee_t)) != sizeof(struct employee_t)) {
+                perror("write");
+                return;
+            }
+
+            printf("Hours updated to: %d\n", ntohl(new_hours));
+            return;
+        }
+    }
+
+    printf("Employee not found.\n");
+}
 
